@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Transcription</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <button id="recordButton">録音開始</button>
+    <div id="transcriptionResult"></div>
+
+    <script>
+        const socket = io();
+        let mediaRecorder;
+        let audioChunks = [];
+        const recordButton = document.getElementById('recordButton');
+        const transcriptionResult = document.getElementById('transcriptionResult');
+        let recordingInterval;
+
+        recordButton.addEventListener('click', toggleRecording);
+
+        function toggleRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                stopRecording();
+                clearInterval(recordingInterval);
+            } else {
+                startRecording();
+                recordingInterval = setInterval(stopAndRestartRecording, 60000); // 1分ごとに録音を停止して再開
+            }
+        }
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                socket.emit('audio_data', audioBlob);
+                audioChunks = []; // 新しい録音のためにクリア
+            });
+
+            mediaRecorder.start();
+            recordButton.textContent = '録音停止';
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            recordButton.textContent = '録音開始';
+        }
+
+        function stopAndRestartRecording() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                mediaRecorder.start();
+            }
+        }
+
+        socket.on('transcription', data => {
+            transcriptionResult.innerHTML += data.text + '<br>';
+        });
+    </script>
+</body>
+</html>

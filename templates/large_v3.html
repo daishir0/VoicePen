@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local Audio Transcription</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <h1>Local Audio Transcription</h1>
+    <button onclick="startRecording()">Start Recording</button>
+    <button onclick="stopRecording()">Stop Recording</button>
+    <div id="result"></div>
+
+    <script>
+        const socket = io();
+        let mediaRecorder;
+        let audioChunks = [];
+        let recordingInterval;
+
+        socket.on('transcription', function(data) {
+            document.getElementById('result').innerText += data.text + ' ';
+        });
+
+        async function startRecording() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = sendAudioData;
+
+            mediaRecorder.start();
+            recordingInterval = setInterval(() => {
+                if (mediaRecorder.state === "recording") {
+                    mediaRecorder.stop();
+                    mediaRecorder.start();
+                }
+            }, 60000); // 1分ごとに録音を停止して再開
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+            }
+            clearInterval(recordingInterval);
+        }
+
+        function sendAudioData() {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            socket.emit('audio_data_local', audioBlob);
+            audioChunks = [];
+        }
+    </script>
+</body>
+</html>
