@@ -100,7 +100,15 @@ def handle_audio_data_local(audio_data):
         # WAVに変換
         log("handle_audio_data_local: Converting to WAV")
         wav_file = convert_to_wav(temp_audio_path)
-        
+        log(f"handle_audio_data_local: Conversion successful: {wav_file}")
+    except subprocess.CalledProcessError as e:
+        log(f"handle_audio_data_local: Conversion failed: {e}")
+        wav_file = None  # Ensure wav_file is defined
+    finally:
+        log(f"handle_audio_data_local: Deleting temporary file {temp_audio_path}")
+        os.unlink(temp_audio_path)
+    
+    if wav_file and os.path.exists(wav_file):
         # Faster Whisperモデルを使用してローカルで音声を文字起こし
         log("handle_audio_data_local: Transcribing audio using Faster Whisper model")
         transcript = transcribe_audio(wav_file)
@@ -108,10 +116,6 @@ def handle_audio_data_local(audio_data):
         # 文字起こし結果をクライアントに送信
         log("handle_audio_data_local: Emitting transcription result")
         socketio.emit('transcription', {'text': transcript})
-    finally:
-        # 一時ファイルを削除
-        log(f"handle_audio_data_local: Deleting temporary file {temp_audio_path}")
-        os.unlink(temp_audio_path)
         if os.path.exists(wav_file):
             log(f"handle_audio_data_local: Deleting WAV file {wav_file}")
             os.unlink(wav_file)
