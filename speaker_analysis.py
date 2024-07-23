@@ -43,6 +43,11 @@ def generate_speaker_embeddings(audio_file: str) -> np.ndarray:
     """
     start_time = time.time()
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    if device == 'cuda':
+        log("GPUを使用しています")
+    else:
+        log("CPUを使用しています")
+    
     audio = Audio()
     embedding_model = PretrainedSpeakerEmbedding("speechbrain/spkrec-ecapa-voxceleb", device=device)
     # config.yamlからトークンを読み込む
@@ -59,10 +64,13 @@ def generate_speaker_embeddings(audio_file: str) -> np.ndarray:
     diarization = pipeline(audio_file)
     
     embeddings = []
-    for segment in diarization.get_timeline():
+    timeline = diarization.get_timeline()
+    total_segments = len(timeline)
+    for i, segment in enumerate(timeline):
         waveform, _ = audio.crop(audio_file, segment)
         embedding = embedding_model(waveform[None])
         embeddings.append(embedding)
+        log(f"generate_speaker_embeddings: {i + 1}/{total_segments} セグメント処理完了")
     
     log(f"generate_speaker_embeddings: End (処理時間: {time.time() - start_time:.2f}秒)")
     return np.vstack(embeddings), diarization
