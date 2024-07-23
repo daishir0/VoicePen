@@ -35,7 +35,11 @@ def convert_to_wav(input_file: str) -> str:
     if not os.path.exists(wav_file):
         log("convert_to_wav: Converting file")
         if file_extension.lower() in ['.mp3', '.m4a', '.mp4', '.webm']:
-            subprocess.run(['ffmpeg', '-i', input_file, '-acodec', 'pcm_s16le', '-ar', '16000', wav_file], check=True)
+            try:
+                subprocess.run(['ffmpeg', '-i', input_file, '-acodec', 'pcm_s16le', '-ar', '16000', wav_file], check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                log(f"convert_to_wav: ffmpeg error: {e.stderr}")
+                raise
         else:
             log("convert_to_wav: Unsupported file format")
             raise ValueError(f"Unsupported file format: {file_extension}")
@@ -103,6 +107,7 @@ def handle_audio_data_local(audio_data):
         log(f"handle_audio_data_local: Conversion successful: {wav_file}")
     except subprocess.CalledProcessError as e:
         log(f"handle_audio_data_local: Conversion failed: {e}")
+        log(f"handle_audio_data_local: ffmpeg error output: {e.output}")
         wav_file = None  # Ensure wav_file is defined
     finally:
         log(f"handle_audio_data_local: Deleting temporary file {temp_audio_path}")
